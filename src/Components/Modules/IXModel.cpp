@@ -61,7 +61,11 @@ namespace Components
 			xmodel.lodInfo[i].smcSubIndexMask = model->lodInfo[i].smcAllocBits;
 			xmodel.lodInfo[i].smcBucket = model->lodInfo[i].unused;
 #else
-			if (model->lodInfo[i].smcIndexPlusOne)
+			
+			static const auto useIW4SMC = Game::Dvar_FindVar("iw3x_fix_model_cache");
+			static const bool shouldRepairCache = useIW4SMC && useIW4SMC->current.string == "1"s;
+
+			if (shouldRepairCache && model->lodInfo[i].smcIndexPlusOne)
 			{
 				// smcIndex is always between 0 and 5 (included).
 				// On iw3 it's always between 0 and 3

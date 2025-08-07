@@ -700,6 +700,8 @@ namespace Components
 			}
 
 			// We now do a pass to use IW4's extended cache for the most common items
+			static const auto useIW4SMC = Game::Dvar_FindVar("iw3x_fix_model_cache");
+			if (useIW4SMC && useIW4SMC->current.string == "1"s)
 			{
 				std::map<Game::IW4::XModel*, unsigned int> smodelsCount{};
 				for (unsigned int i = 0; i < map.dpvs.smodelCount; ++i)
