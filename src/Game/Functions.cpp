@@ -18,6 +18,8 @@ namespace Game
     DB_LoadXAssets_t DB_LoadXAssets = DB_LoadXAssets_t(0x48A2B0);
 	DB_GetXAssetSizeHandler_t* DB_GetXAssetSizeHandlers = reinterpret_cast<DB_GetXAssetSizeHandler_t*>(0x726A10);
 
+	DB_SyncXAssets_t DB_SyncXAssets = DB_SyncXAssets_t(0x48A290);
+
 	Dvar_RegisterNew_t* Dvar_RegisterNew = reinterpret_cast<Dvar_RegisterNew_t*>(0x56C130);
 
 	IW3::XAssetHeader* DB_XAssetPool = reinterpret_cast<IW3::XAssetHeader*>(0x7265E0);

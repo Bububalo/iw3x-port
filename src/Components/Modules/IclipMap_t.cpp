@@ -673,6 +673,8 @@ namespace Components
 		Command::Add("dumpclipMap_t", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+				
+				Game::DB_SyncXAssets();
 
 				auto header = Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_CLIPMAP_PVS, params[1]);
 				auto iw4Map = IclipMap_t::Convert(header.clipMap);

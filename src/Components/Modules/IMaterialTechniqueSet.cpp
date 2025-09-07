@@ -712,6 +712,9 @@ namespace Components
 
 				const auto n = params[1];
 
+				Game::DB_SyncXAssets();
+
+
 				if ("*"s == n)
 				{
 					std::vector<std::string> names{};

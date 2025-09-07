@@ -61,7 +61,7 @@ namespace Components
 			xmodel.lodInfo[i].smcSubIndexMask = model->lodInfo[i].smcAllocBits;
 			xmodel.lodInfo[i].smcBucket = model->lodInfo[i].unused;
 #else
-			
+
 			static const auto useIW4SMC = Game::Dvar_FindVar("iw3x_fix_model_cache");
 			static const bool shouldRepairCache = useIW4SMC && useIW4SMC->current.string == "1"s;
 
@@ -332,7 +332,7 @@ namespace Components
 					// "bad values" (this might not be important)
 					SetBoneTrans(model, weaponLeft, false, 0.0f, 0.f, 0.f);
 					SetBoneQuaternion(model, weaponLeft, false, 0.f, 0.0f, 0.f, 0.f);
-					
+
 					SetBoneTrans(model, weaponLeft, true, 0.0f, 0.f, 0.f);
 					SetBoneQuaternion(model, weaponLeft, true, 0.f, 0.0f, 0.f, 0.f);
 
@@ -901,6 +901,8 @@ namespace Components
 		Command::Add("dumpXModel", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+
+				Game::DB_SyncXAssets();
 
 				if ("*"s == params[1])
 				{

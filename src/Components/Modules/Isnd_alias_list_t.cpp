@@ -144,6 +144,9 @@ namespace Components
 		Command::Add("dumpSound", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+
+				Game::DB_SyncXAssets();
+
 				const auto asset = Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_SOUND, params[1]).sound;
 				if (asset)
 				{

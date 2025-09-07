@@ -73,9 +73,12 @@ namespace Components
 			{
 				if (params.Length() < 2) return;
 				
+				Game::DB_SyncXAssets();
+
 				MapDumper::GetApi()->set_work_path(AssetHandler::GetExportPath());
 
 				Utils::Hook::Call<void()>(0x416430)(); // BG_ClearWeaponDef needs to be called to init playeranimtype
+				Game::DB_SyncXAssets();
 
 				const auto n = params[1];
 
@@ -614,7 +617,13 @@ target->##name = AssetHandler::Convert(Game::IW3::ASSET_TYPE_XMODEL, { asset->##
 		if (!tracerMaterial)
 		{
 			// CGMedia not initialized
-			tracerMaterial = Game::DB_FindXAssetEntry(Game::IW3::ASSET_TYPE_MATERIAL, "gfx_tracer")->entry.asset.header.material;
+			Game::IW3::XAssetEntryPoolEntry* entry;
+			while(nullptr == (entry = Game::DB_FindXAssetEntry(Game::IW3::ASSET_TYPE_MATERIAL, "gfx_tracer")))
+			{
+				continue;
+			}
+			
+			tracerMaterial = entry->entry.asset.header.material;
 		}
 
 		if (tracerMaterial)

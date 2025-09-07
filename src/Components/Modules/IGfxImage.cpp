@@ -319,6 +319,8 @@ namespace Components
 			{
 				if (params.Length() < 2) return;
 				
+				Game::DB_SyncXAssets();
+
 				const auto entry = Game::DB_FindXAssetEntry(Game::IW3::ASSET_TYPE_IMAGE, params[1]);
 				if (entry)
 				{

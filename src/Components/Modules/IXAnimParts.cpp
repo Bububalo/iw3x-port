@@ -66,6 +66,9 @@ namespace Components
 		Command::Add("dumpXAnimParts", [](Command::Params params)
 			{
 				if (params.Length() < 2) return;
+
+				Game::DB_SyncXAssets();
+
 				auto converted = IXAnimParts::Convert(Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_XANIMPARTS, params[1]).parts);
 				MapDumper::GetApi()->write(Game::IW4::XAssetType::ASSET_TYPE_XANIMPARTS, converted);
 			});

@@ -9,7 +9,7 @@ namespace Components
 		if (!asset) return nullptr;
 
 		auto result = LocalAllocator.Allocate<Game::IW4::GfxLightDef>();
-		
+
 		static_assert(sizeof(Game::IW3::GfxLightDef) == sizeof(Game::IW4::GfxLightDef));
 
 		std::memcpy(result, asset, sizeof Game::IW4::GfxLightDef);
@@ -26,11 +26,14 @@ namespace Components
 	IGfxLightDef::IGfxLightDef()
 	{
 		Command::Add("dumpGfxLightDef", [](const Command::Params& params)
-		{
-			if (params.Length() < 2) return;
-			auto converted = IGfxLightDef::Convert(Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_LIGHT_DEF, params[1]).lightDef);
-			MapDumper::GetApi()->write(Game::IW4::XAssetType::ASSET_TYPE_LIGHT_DEF, converted);
-		});
+			{
+				if (params.Length() < 2) return;
+
+				Game::DB_SyncXAssets();
+
+				auto converted = IGfxLightDef::Convert(Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_LIGHT_DEF, params[1]).lightDef);
+				MapDumper::GetApi()->write(Game::IW4::XAssetType::ASSET_TYPE_LIGHT_DEF, converted);
+			});
 	}
 
 	IGfxLightDef::~IGfxLightDef()

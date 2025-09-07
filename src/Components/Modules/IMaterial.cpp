@@ -540,6 +540,9 @@ namespace Components
 		Command::Add("dumpMaterial", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+				
+				Game::DB_SyncXAssets();
+
 				auto asset = IMaterial::Convert(Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_MATERIAL, params[1]).material);
 				MapDumper::GetApi()->write(Game::IW4::XAssetType::ASSET_TYPE_MATERIAL, asset);
 			});

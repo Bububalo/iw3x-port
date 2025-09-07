@@ -828,6 +828,9 @@ namespace Components
 		Command::Add("dumpGfxWorld", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+				
+				Game::DB_SyncXAssets();
+
 				const auto name = params[1];
 				const auto header = Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_GFXWORLD, name);
 				auto converted = IGfxWorld::Convert(header.gfxWorld);

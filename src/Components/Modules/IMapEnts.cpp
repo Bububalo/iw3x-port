@@ -57,6 +57,8 @@ namespace Components
 		Command::Add("dumpMapEnts", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+				
+				Game::DB_SyncXAssets();
 
 				auto converted = IMapEnts::Convert(Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_CLIPMAP_PVS, params[1]).clipMap->mapEnts);
 				MapDumper::GetApi()->write(Game::IW4::ASSET_TYPE_MAP_ENTS, converted);

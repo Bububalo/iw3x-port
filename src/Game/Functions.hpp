@@ -32,6 +32,9 @@ namespace Game
 
 	typedef int(*DB_GetXAssetSizeHandler_t)();
 	extern DB_GetXAssetSizeHandler_t* DB_GetXAssetSizeHandlers;
+	
+    typedef void(*DB_SyncXAssets_t)();
+    extern DB_SyncXAssets_t DB_SyncXAssets;
 
 	extern IW3::XAssetHeader * DB_XAssetPool;
 	extern unsigned int* g_poolSize;

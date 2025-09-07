@@ -21,19 +21,21 @@ namespace Components
 
 	IGameWorld::IGameWorld()
 	{
-		Command::Add("dumpGameWorld", [] (Command::Params params)
-		{
-			if (params.Length() < 2) return;
-			std::string name = params[1];
+		Command::Add("dumpGameWorld", [](Command::Params params)
+			{
+				if (params.Length() < 2) return;
+				std::string name = params[1];
 
-			auto header = Game::DB_FindXAssetHeader(
-				name.contains("mp/mp_") ? Game::IW3::XAssetType::ASSET_TYPE_GAMEWORLD_MP : Game::IW3::XAssetType::ASSET_TYPE_GAMEWORLD_SP,
-				name.data()
-			);
+				Game::DB_SyncXAssets();
 
-			auto converted = IGameWorld::Convert(header.gameWorldMp);
-			MapDumper::GetApi()->write(Game::IW4::XAssetType::ASSET_TYPE_GAMEWORLD_MP, converted);
-		});
+				auto header = Game::DB_FindXAssetHeader(
+					name.contains("mp/mp_") ? Game::IW3::XAssetType::ASSET_TYPE_GAMEWORLD_MP : Game::IW3::XAssetType::ASSET_TYPE_GAMEWORLD_SP,
+					name.data()
+				);
+
+				auto converted = IGameWorld::Convert(header.gameWorldMp);
+				MapDumper::GetApi()->write(Game::IW4::XAssetType::ASSET_TYPE_GAMEWORLD_MP, converted);
+			});
 	}
 
 	IGameWorld::~IGameWorld()

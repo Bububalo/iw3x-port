@@ -192,6 +192,8 @@ namespace Components
 		Command::Add("dumpFxEffectDef", [](Command::Params params)
 			{
 				if (params.Length() < 2) return;
+				
+				Game::DB_SyncXAssets();
 
 				const auto name = params[1];
 				const auto header = Game::DB_FindXAssetHeader(Game::IW3::XAssetType::ASSET_TYPE_FX, name);

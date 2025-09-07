@@ -126,6 +126,8 @@ namespace Components
 	{
 		Command::Add("dumpTeams", [](const Command::Params&)
 			{
+				Game::DB_SyncXAssets();
+
 				MapDumper::GetApi()->set_work_path(AssetHandler::GetExportPath());
 				DumpTeams();
 				Logger::Print("Teams successfully exported.\n");
@@ -162,6 +164,7 @@ namespace Components
 				currentMap = mapToDump;
 				Logger::Print("Loading map '%s'...\n", mapToDump.data());
 				Command::Execute(Utils::VA("loadzone %s", mapToDump.data()), true);
+				Game::DB_SyncXAssets();
 			}
 
 			std::string lowerPrefix = team.voicePrefix;

@@ -49,6 +49,8 @@ namespace Components
 		Logger::Print("Loading map '%s'...\n", mapToDump.data());
 		Command::Execute(Utils::VA("%s %s", isSingleplayer ? "loadzone" : "map", mapToDump.data()), true);
 		Command::Execute(Utils::VA("loadzone %s_load", mapToDump.data()), true);
+		
+		Game::DB_SyncXAssets();
 
 		// Search zone index
 		int myZoneIndex = 0;
@@ -393,6 +395,9 @@ namespace Components
 		Command::Add("dumpMap", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
+
+				Game::DB_SyncXAssets();
+
 				std::string mapname = params[1];
 
 				api->set_work_path(AssetHandler::GetExportPath());
