@@ -1,4 +1,4 @@
-#include "STDInclude.hpp"
+﻿#include "STDInclude.hpp"
 
 #define IW4X_IMG_VERSION "0"
 
@@ -40,7 +40,52 @@ namespace Components
 			loneImageName = imagesRenamedReverse.at(loneImageName);
 			truncated_filename = std::format("images/{}.iwi", loneImageName);
 		}
+
 		FileSystem::File img(truncated_filename);
+
+		if (!img.Exists())
+		{
+			std::string rawImagePath = "raw/images/" + loneImageName + ".iwi";
+
+			std::ifstream rawFile(rawImagePath, std::ios::binary);
+			if (!rawFile)
+			{
+				Logger::Print("Image %s not found in archives or raw/images/, mapping to normalmap\n", truncated_filename.c_str());
+				img = FileSystem::File("images/$identitynormalmap.iwi");
+			}
+			else
+			{
+				std::vector<char> rawData((std::istreambuf_iterator<char>(rawFile)), std::istreambuf_iterator<char>());
+				rawFile.close();
+
+				const Game::IW3::GfxImageFileHeader* headerIW3 = reinterpret_cast<const Game::IW3::GfxImageFileHeader*>(rawData.data());
+				Game::IW4::GfxImageFileHeader headerIW4{};
+
+				headerIW4.version = 8;
+				headerIW4.flags = TranslateFlags(headerIW3->flags);
+				headerIW4.format = headerIW3->format;
+
+				std::memcpy(headerIW4.tag, headerIW3->tag, sizeof(headerIW4.tag));
+				std::memcpy(headerIW4.dimensions, headerIW3->dimensions, sizeof(headerIW4.dimensions));
+				std::memcpy(headerIW4.fileSizeForPicmip, headerIW3->fileSizeForPicmip, sizeof(headerIW4.fileSizeForPicmip));
+
+				for (int i = 0; i < 4; ++i)
+				{
+					int* size = &headerIW4.fileSizeForPicmip[i];
+					if (*size)
+					{
+						*size -= sizeof(Game::IW3::GfxImageFileHeader);
+						*size += sizeof(Game::IW4::GfxImageFileHeader);
+					}
+				}
+
+				std::string buffer(reinterpret_cast<char*>(&headerIW4), sizeof(Game::IW4::GfxImageFileHeader));
+				buffer.append(rawData.data() + sizeof(Game::IW3::GfxImageFileHeader),
+					rawData.size() - sizeof(Game::IW3::GfxImageFileHeader));
+
+				return buffer;
+			}
+		}
 
 		if (!img.Exists())
 		{
@@ -319,8 +364,6 @@ namespace Components
 			{
 				if (params.Length() < 2) return;
 				
-				Game::DB_SyncXAssets();
-
 				const auto entry = Game::DB_FindXAssetEntry(Game::IW3::ASSET_TYPE_IMAGE, params[1]);
 				if (entry)
 				{

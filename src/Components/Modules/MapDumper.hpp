@@ -6,8 +6,8 @@ namespace Components
 	{
 	public:
 		const char* GetName() override { return "MapDumper"; };
-
 		static std::string GetMapName();
+		static std::string GetZoneName();
 		static int GetZoneIndex();
 		static iw4of::api* GetApi();
 
@@ -26,7 +26,9 @@ namespace Components
 		iw4of::params_t GetParams();
 
 		static std::string mapName;
+		static std::string zoneName;
 		static int zoneIndex;
+		static void DumpZone(std::string zoneName);
 		static iw4of::api* api;
 	};
 }

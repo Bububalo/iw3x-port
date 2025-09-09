@@ -4,6 +4,7 @@ namespace Components
 {
 
 	std::string MapDumper::mapName;
+	std::string MapDumper::zoneName;
 	int MapDumper::zoneIndex;
 	iw4of::api* MapDumper::api;
 
@@ -14,7 +15,7 @@ namespace Components
 	bool MapDumper::ShouldExtendCulling()
 	{
 		auto shouldExtendCulling = Game::Dvar_FindVar("iw3x_extend_culling");
-		if (shouldExtendCulling && 
+		if (shouldExtendCulling &&
 			shouldExtendCulling->current.string == "1"s)
 		{
 			return true;
@@ -27,6 +28,10 @@ namespace Components
 		return MapDumper::mapName;
 	}
 
+	std::string MapDumper::GetZoneName() {
+		return MapDumper::zoneName;
+	}
+
 	int MapDumper::GetZoneIndex() {
 		return MapDumper::zoneIndex;
 	}
@@ -36,6 +41,7 @@ namespace Components
 		IXModel::Reset();
 
 		MapDumper::mapName = mapToDump;
+		MapDumper::GetApi()->set_work_path(Utils::VA("iw3xport_out/%s", mapToDump.c_str()));
 		bool isSingleplayer = !mapToDump.starts_with("mp_");
 		std::string bspName = Utils::VA("maps/%s%s.d3dbsp", isSingleplayer ? "" : "mp/", mapToDump.data());
 
@@ -49,8 +55,6 @@ namespace Components
 		Logger::Print("Loading map '%s'...\n", mapToDump.data());
 		Command::Execute(Utils::VA("%s %s", isSingleplayer ? "loadzone" : "map", mapToDump.data()), true);
 		Command::Execute(Utils::VA("loadzone %s_load", mapToDump.data()), true);
-		
-		Game::DB_SyncXAssets();
 
 		// Search zone index
 		int myZoneIndex = 0;
@@ -228,7 +232,7 @@ namespace Components
 			{
 				const auto header = Game::DB_FindXAssetHeader(Game::IW3::ASSET_TYPE_RAWFILE, Utils::VA("maps/%s%s.gsc", isSingleplayer ? "" : "mp/", map.data()));
 				if (header.data) {
-					
+
 					const std::string rawfile = std::string(header.rawfile->buffer, header.rawfile->len);
 					const auto getFromGsc = [&](const std::string& info)
 						{
@@ -249,7 +253,7 @@ namespace Components
 					const auto allies = getFromGsc("allies");
 					const auto axis = getFromGsc("axis");
 					const auto env = getFromGsc("allies_soldiertype");
-					
+
 					if (!env.empty())
 					{
 						environment = env;
@@ -295,7 +299,7 @@ namespace Components
 						}
 
 						return defaultTeamName.data();
-					};
+						};
 
 					alliesChar = parseTeam(environment, allies, alliesChar);
 					axisChar = parseTeam(environment, axis, axisChar);
@@ -382,9 +386,219 @@ namespace Components
 				}
 			};
 
-		params.work_directory = DEFAULT_WORK_DIRECTORY;
+		params.work_directory = "iw3xport_out/%s";
 
 		return params;
+	}
+
+	void MapDumper::DumpZone(std::string zoneToDump)
+	{
+		IXModel::Reset();
+
+		MapDumper::zoneName = zoneToDump;
+		MapDumper::GetApi()->set_work_path(Utils::VA("iw3xport_out/%s", zoneToDump.c_str()));
+		bool isSingleplayer = !zoneToDump.starts_with("mp_");
+		std::string bspName = Utils::VA("maps/%s%s.d3dbsp", isSingleplayer ? "" : "mp/", zoneToDump.data());
+
+		static auto additionalModelsFile = GSC::GetAdditionalModelsListPath();
+		if (Utils::FileExists(additionalModelsFile))
+		{
+			// We void it, it might get rewritten anyway
+			Utils::WriteFile(additionalModelsFile, "\0");
+		}
+
+		Logger::Print("Loading zone '%s'...\n", zoneToDump.data());
+		Command::Execute(Utils::VA("%s %s", isSingleplayer ? "loadzone" : "loadzone", zoneName.data()), true);
+		Command::Execute(Utils::VA("loadzone %s_load", zoneToDump.data()), true);
+
+		// Search zone index
+		int myZoneIndex = 0;
+		for (; myZoneIndex < 32; ++myZoneIndex)
+		{
+			if (Game::g_zones[myZoneIndex].name == zoneToDump)
+			{
+				break;
+			}
+		}
+
+		MapDumper::zoneIndex = myZoneIndex;
+
+		Logger::Print("Exporting any Weapons...\n");
+
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_WEAPON, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* entry) {
+			if (entry->entry.zoneIndex == myZoneIndex)
+			{
+				auto name = Game::DB_GetXAssetNameHandlers[entry->entry.asset.type](&entry->entry.asset.header);
+				auto converted = AssetHandler::Convert(Game::IW3::ASSET_TYPE_WEAPON, entry->entry.asset.header);
+				if (converted.data)
+				{
+					GetApi()->write(Game::IW4::ASSET_TYPE_WEAPON, converted.data);
+				}
+			}
+		}, false);
+
+		Logger::Print("Exporting any Sounds...\n");
+
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_SOUND, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* poolEntry) {
+			if (poolEntry)
+			{
+				auto& entry = poolEntry->entry;
+				if (entry.zoneIndex != myZoneIndex || entry.inuse != 0 || !entry.asset.header.sound)
+					return;
+
+				auto aliasName = entry.asset.header.sound->aliasName;
+				if (!aliasName) return;
+
+				// Filter out unwanted categories
+				if (Utils::StartsWith(aliasName, "weap") ||
+					Utils::StartsWith(aliasName, "melee") ||
+					Utils::StartsWith(aliasName, "c4"))
+					return;
+
+				if (entry.asset.header.sound->head && entry.asset.header.sound->head->soundFile)
+				{
+					const char* soundFileName = entry.asset.header.sound->head->soundFile->type == Game::SAT_LOADED
+						? entry.asset.header.sound->head->soundFile->u.loadSnd->name
+						: entry.asset.header.sound->head->soundFile->u.streamSnd.filename.info.raw.dir;
+
+					if (Utils::StartsWith(soundFileName, "vehicles") || Utils::StartsWith(soundFileName, "voiceovers"))
+						return;
+				}
+
+				try
+				{
+					auto converted = AssetHandler::Convert(Game::IW3::ASSET_TYPE_SOUND, entry.asset.header);
+					if (converted.data)
+					{
+						GetApi()->write(Game::IW4::ASSET_TYPE_SOUND, converted.data);
+					}
+				}
+				catch (const std::exception&)
+				{
+					// There's a good chance DB_EnumDXAssetEntries just gave me garbage data
+					// No need to make a fuzz
+				}
+			}
+		}, false);
+
+		if (myZoneIndex < 32)
+		{
+			Logger::Print("Exporting any FX...\n");
+
+			Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_FX, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* entry)
+				{
+					if (entry->entry.zoneIndex == myZoneIndex)
+					{
+						std::string name = Game::DB_GetXAssetNameHandlers[entry->entry.asset.type](&entry->entry.asset.header);
+						Command::Execute(Utils::VA("dumpFxEffectDef %s", name.data()), true);
+					}
+				}, false);
+		}
+
+		Logger::Print("Exporting any XModels...\n");
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_XMODEL, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* entry) {
+			if (entry->entry.zoneIndex == myZoneIndex)
+			{
+				auto name = Game::DB_GetXAssetNameHandlers[entry->entry.asset.type](&entry->entry.asset.header);
+				auto converted = AssetHandler::Convert(Game::IW3::ASSET_TYPE_XMODEL, entry->entry.asset.header);
+				if (converted.data)
+				{
+					GetApi()->write(Game::IW4::ASSET_TYPE_XMODEL, converted.data);
+				}
+			}
+		}, false);
+
+		Logger::Print("Exporting any XAnims...\n");
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_XANIMPARTS, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* entry) {
+			if (entry->entry.zoneIndex == myZoneIndex)
+			{
+				auto name = Game::DB_GetXAssetNameHandlers[entry->entry.asset.type](&entry->entry.asset.header);
+				auto converted = AssetHandler::Convert(Game::IW3::ASSET_TYPE_XANIMPARTS, entry->entry.asset.header);
+				if (converted.data)
+				{
+					GetApi()->write(Game::IW4::ASSET_TYPE_XANIMPARTS, converted.data);
+				}
+			}
+		}, false);
+
+		Logger::Print("Exporting any Images...\n");
+
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_IMAGE, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* entry) {
+			if (entry->entry.zoneIndex == myZoneIndex)
+			{
+				auto name = Game::DB_GetXAssetNameHandlers[entry->entry.asset.type](&entry->entry.asset.header);
+				auto converted = AssetHandler::Convert(Game::IW3::ASSET_TYPE_IMAGE, entry->entry.asset.header);
+				if (converted.data)
+				{
+					GetApi()->write(Game::IW4::ASSET_TYPE_IMAGE, converted.data);
+				}
+			}
+		}, false);
+
+		Logger::Print("Exporting any Materials...\n");
+
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_MATERIAL, [myZoneIndex](Game::IW3::XAssetEntryPoolEntry* entry) {
+			if (entry->entry.zoneIndex == myZoneIndex)
+			{
+				auto name = Game::DB_GetXAssetNameHandlers[entry->entry.asset.type](&entry->entry.asset.header);
+				auto converted = AssetHandler::Convert(Game::IW3::ASSET_TYPE_MATERIAL, entry->entry.asset.header);
+				if (converted.data)
+				{
+					GetApi()->write(Game::IW4::ASSET_TYPE_MATERIAL, converted.data);
+				}
+			}
+		}, false);
+
+		bool hasBsp = false;
+		Game::DB_EnumXAssetEntries(Game::IW3::ASSET_TYPE_COMWORLD, [myZoneIndex, &hasBsp](Game::IW3::XAssetEntryPoolEntry* entry)
+			{
+				if (entry->entry.zoneIndex == myZoneIndex)
+					hasBsp = true;
+			}, false);
+
+		if (hasBsp)
+		{
+			std::string bspName = Utils::VA("maps/%s%s.d3dbsp", isSingleplayer ? "" : "mp/", zoneToDump.data());
+			Logger::Print("Exporting BSP/world assets...\n");
+
+			Command::Execute(Utils::VA("dumpComWorld %s", bspName.data()), true);
+			Command::Execute(Utils::VA("dumpGameWorld %s", bspName.data()), true);
+			Command::Execute(Utils::VA("dumpGfxWorld %s", bspName.data()), true);
+			Command::Execute(Utils::VA("dumpclipMap_t %s", bspName.data()), true);
+			Command::Execute(Utils::VA("dumpMapEnts %s", bspName.data()), true);
+
+			Logger::Print("Exporting any Compasses...\n");
+			Command::Execute(Utils::VA("dumpMaterial compass_map_%s", zoneToDump.data()), true);
+
+			Logger::Print("Exporting any Loadscreens...\n");
+			Command::Execute(Utils::VA("dumpMaterial $levelbriefing"), true);
+		}
+		else
+		{
+			Logger::Print("No d3dbsps in this zone. Skipping...\n");
+		}
+
+		Logger::Print("Exporting any environment GSCs...\n");
+		Command::Execute(Utils::VA("dumpRawFile maps/%s%s.gsc", isSingleplayer ? "" : "mp/", zoneToDump.data()), true);
+		Command::Execute(Utils::VA("dumpRawFile maps/%s%s_fx.gsc", isSingleplayer ? "" : "mp/", zoneToDump.data(), zoneToDump.data()), true);
+		Command::Execute(Utils::VA("dumpRawFile maps/createfx/%s_fx.gsc", zoneToDump.data()), true);
+
+		Command::Execute(Utils::VA("dumpRawFile maps/createart/%s_art.gsc", zoneToDump.data()), true);
+
+		auto convertGsc = Game::Dvar_FindVar("iw3x_convert_gsc");
+		if (convertGsc && convertGsc->current.string == "1"s) {
+			Logger::Print("Patching any GSCs...\n");
+			GSC::UpgradeGSC(Utils::VA("%s/maps/createfx/%s_fx.gsc", AssetHandler::GetExportPath().data(), zoneToDump.data()), GSC::ConvertFXGSC);
+			GSC::UpgradeGSC(Utils::VA("%s/maps/%s%s_fx.gsc", AssetHandler::GetExportPath().data(), isSingleplayer ? "" : "mp/", zoneToDump.data()), GSC::ConvertMainFXGSC);
+			GSC::UpgradeGSC(Utils::VA("%s/maps/createart/%s_art.gsc", AssetHandler::GetExportPath().data(), zoneToDump.data()), GSC::ConvertMainArtGSC);
+			GSC::UpgradeGSC(Utils::VA("%s/maps/%s%s.gsc", AssetHandler::GetExportPath().data(), isSingleplayer ? "" : "mp/", zoneToDump.data()), GSC::ConvertMainGSC);
+		}
+
+		Logger::Print("Exporting any Visions...\n");
+		Command::Execute(Utils::VA("dumpRawFile vision/%s.vision", zoneToDump.data()), true);
+
+		Logger::Print("Exporting any Suns...\n");
+		Command::Execute(Utils::VA("dumpRawFile sun/%s.sun", zoneToDump.data()), true);
 	}
 
 	MapDumper::MapDumper()
@@ -395,15 +609,29 @@ namespace Components
 		Command::Add("dumpMap", [](const Command::Params& params)
 			{
 				if (params.Length() < 2) return;
-
-				Game::DB_SyncXAssets();
-
 				std::string mapname = params[1];
+
+				std::string workDir = Utils::VA("iw3xport_out/%s", mapname.c_str());
+				AssetHandler::SetExportPath(workDir.c_str());
 
 				api->set_work_path(AssetHandler::GetExportPath());
 
 				MapDumper::DumpMap(mapname);
 				Logger::Print("Map '%s' successfully exported.\n", mapname.data());
+			});
+
+		Command::Add("dumpZone", [](const Command::Params& params)
+			{
+				if (params.Length() < 2) return;
+				std::string zonename = params[1];
+
+				std::string workDir = Utils::VA("iw3xport_out/%s", zonename.c_str());
+				AssetHandler::SetExportPath(workDir.c_str());
+
+				api->set_work_path(AssetHandler::GetExportPath());
+
+				MapDumper::DumpZone(zonename);
+				Logger::Print("Zone '%s' successfully exported.\n", zonename.data());
 			});
 	}
 
